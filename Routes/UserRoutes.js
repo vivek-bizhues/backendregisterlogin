@@ -1,66 +1,130 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/user.model'); // Import the User model
+const User = require('../Model/User');
 const jwt = require('jsonwebtoken');
-const { default: transporter } = require('../transporter');
+const bcrypt = require('bcrypt');
+// const { default: transporter } = require('../transporter');
+
+const secretKey = 'yourSecretKey';
 
 // Registration route
 router.post('/register', async (req, res) => {
-  const { email, password } = req.body;
+  const { username, email, password } = req.body;
+
+  // Check if the email is already in use
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    return res.status(400).json({ message: 'Email is already in use' });
+  }
+
+  // Hash the password using bcrypt
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = new User({ username, email, password: hashedPassword,isVerified:false });
 
   // Save the user to the database
-  const user = new User({ email, password, isVerified: false });
   await user.save();
 
-  // Send an email with an OTP
-  const otp = Math.floor(1000 + Math.random() * 9000); // Generate a 4-digit OTP
+  res.json({ message: 'User registered successfully' });
 
-  // Replace the following with your email sending logic
-  const mailOptions = {
-    from: 'your-email@example.com',
-    to: email,
-    subject: 'Email Verification OTP',
-    text: `Your OTP for email verification is: ${otp}`,
-  };
 
-  // Send the email and respond with a JWT token
-  // (you should replace this with your email sending logic)
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Email sending failed' });
-    } else {
-      // Generate a JWT token and send it back to the client for verification
-      const token = jwt.sign({ email, otp }, 'your-secret-key', {
-        expiresIn: '1h',
-      });
-      res.json({ message: 'Email sent with OTP', token });
-    }
-  });
+  // // Send an email with an OTP
+  // const otp = Math.floor(1000 + Math.random() * 9000); // Generate a 4-digit OTP
+
+  // // Replace the following with your email sending logic
+  // const mailOptions = {
+  //   from: 'your-email@example.com',
+  //   to: email,
+  //   subject: 'Email Verification OTP',
+  //   text: `Your OTP for email verification is: ${otp}`,
+  // };
+
+  // // Send the email and respond with a JWT token
+  // // (you should replace this with your email sending logic)
+  // transporter.sendMail(mailOptions, (error, info) => {
+  //   if (error) {
+  //     console.error(error);
+  //     res.status(500).json({ message: 'Email sending failed' });
+  //   } else {
+  //     // Generate a JWT token and send it back to the client for verification
+  //     const token = jwt.sign({ email, otp }, 'your-secret-key', {
+  //       expiresIn: '1h',
+  //     });
+  //     res.json({ message: 'Email sent with OTP', token });
+  //   }
+  // });
 });
 
-// Verification route
-router.post('/verify', (req, res) => {
-  const { email, otp } = req.body;
-  const token = req.headers.authorization;
+// Login
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
 
-  // Verify the JWT token
-  jwt.verify(token, 'your-secret-key', (err, decoded) => {
-    if (err) {
-      res.status(401).json({ message: 'Invalid token' });
-    } else if (decoded.email === email && decoded.otp === otp) {
-      // Update user's registration status to true
-      User.updateOne({ email }, { isVerified: true }, (updateErr) => {
-        if (updateErr) {
-          res.status(500).json({ message: 'Verification failed' });
-        } else {
-          res.json({ message: 'Email verified successfully' });
-        }
-      });
-    } else {
-      res.status(400).json({ message: 'Invalid OTP' });
-    }
-  });
+  // Find the user by username
+  const user = await User.findOne({ email});
+
+  if (!user) {
+    return res.status(401).json({ message: 'Authentication failed' });
+  }
+
+  // Compare the provided password with the stored hash
+  const passwordMatch = await bcrypt.compare(password, user.password);
+
+  if (!passwordMatch) {
+    return res.status(401).json({ message: 'Authentication failed' });
+  }
+
+  // Generate a JWT token and send it in the response
+  const token = jwt.sign({ email }, secretKey);
+
+  res.json({ message: 'Authentication successful', token, user });
 });
+
+
+// Get user details by email
+router.get('/:email', async (req, res) => {
+  const email = req.params.email;
+
+  // Find the user by email
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  // Send the user's details in the response
+  res.json(user);
+});
+
+
+// Change password route
+router.post('/change-password', async (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
+
+  // Find the user by email
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  // Compare the provided old password with the stored hash
+  const oldPasswordMatch = await bcrypt.compare(oldPassword, user.password);
+
+  if (!oldPasswordMatch) {
+    return res.status(401).json({ message: 'Old password is incorrect' });
+  }
+
+  // Hash the new password using bcrypt
+  const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+  // Update the user's password in the database
+  user.password = hashedNewPassword;
+  await user.save();
+
+  res.json({ message: 'Password changed successfully' });
+});
+
+
 
 module.exports = router;
