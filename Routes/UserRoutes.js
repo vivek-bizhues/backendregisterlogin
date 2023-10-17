@@ -59,9 +59,11 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
+  console.log(email,password)
 
   // Find the user by username
   const user = await User.findOne({ email});
+  console.log(user);
 
   if (!user) {
     return res.status(401).json({ message: 'Authentication failed' });
@@ -69,6 +71,7 @@ router.post('/login', async (req, res) => {
 
   // Compare the provided password with the stored hash
   const passwordMatch = await bcrypt.compare(password, user.password);
+  console.log(passwordMatch)
 
   if (!passwordMatch) {
     return res.status(401).json({ message: 'Authentication failed' });
