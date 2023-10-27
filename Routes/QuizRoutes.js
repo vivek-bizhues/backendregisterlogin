@@ -31,7 +31,7 @@ router.post('/', authenticateUser, (req, res) => {
 
   router.get('/', authenticateUser, async (req, res) => {
     const userEmail = req.user.email; // Get the user ID from the authenticated user'
-    console.log(userEmail);
+    // console.log(userEmail);
     try {
       // Fetch user-specific responses from the database
       const userResponses = await Response.find({ userEmail });
