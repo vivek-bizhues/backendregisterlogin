@@ -4,7 +4,7 @@ const User = require('../Model/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const authenticateUser = require('../middleware/authenticateUser');
-const transporter = require("../transporter");
+const transporter = require("../transporter")
 
 // const { default: transporter } = require('../transporter');
 

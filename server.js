@@ -15,7 +15,10 @@ mongoose.connect('mongodb+srv://vivek:bhatt@cluster0.pa9elm0.mongodb.net/data?re
 // Import and use the user route
 // const userRoutes = require('./routes/user.route');
 const userRoutes = require ('./Routes/UserRoutes.js')
+const quizRoutes = require ('./Routes/QuizRoutes.js')
+
 app.use('/user', userRoutes);
+app.use('/userresponses', quizRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
