@@ -3,6 +3,9 @@ const router = express.Router();
 const User = require('../Model/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const authenticateUser = require('../middleware/authenticateUser');
+const transporter = require("../transporter");
+
 // const { default: transporter } = require('../transporter');
 
 const secretKey = 'yourSecretKey';
@@ -21,7 +24,7 @@ router.post('/register', async (req, res) => {
   // Hash the password using bcrypt
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const user = new User({ username, email, password: hashedPassword,isVerified:false });
+  const user = new User({ username, email, password: hashedPassword,isVerified:false , role : "admin"});
 
   // Save the user to the database
   await user.save();
@@ -63,7 +66,7 @@ router.post('/login', async (req, res) => {
 
   // Find the user by username
   const user = await User.findOne({ email});
-  console.log(user);
+  // console.log(user);
 
   if (!user) {
     return res.status(401).json({ message: 'Authentication failed' });
@@ -71,7 +74,7 @@ router.post('/login', async (req, res) => {
 
   // Compare the provided password with the stored hash
   const passwordMatch = await bcrypt.compare(password, user.password);
-  console.log(passwordMatch)
+  // console.log(passwordMatch)
 
   if (!passwordMatch) {
     return res.status(401).json({ message: 'Authentication failed' });
@@ -85,7 +88,7 @@ router.post('/login', async (req, res) => {
 
 
 // Get user details by email
-router.get('/:email', async (req, res) => {
+router.get('/:email',authenticateUser, async (req, res) => {
   const email = req.params.email;
 
   // Find the user by email
@@ -126,6 +129,59 @@ router.post('/change-password', async (req, res) => {
   await user.save();
 
   res.json({ message: 'Password changed successfully' });
+});
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  // Check if the user with the provided email exists
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  // Generate a random 6-digit OTP
+  const otp = randomstring.generate({ length: 6, charset: 'numeric' });
+
+  const mailOptions = {
+    from: 'your-email@example.com',
+    to: email,
+    subject: 'Password Reset OTP',
+    text: `Your OTP for password reset is: ${otp}`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Email sending failed' });
+    } else {
+      // Generate a JWT token with the email and OTP and send it back to the client
+      const token = jwt.sign({ email, otp }, secretKey, { expiresIn: '1h' });
+      res.json({ message: 'OTP sent to email', token });
+    }
+  });
+});
+
+router.get('/:id', authenticateUser, (req, res) => {
+  const userId = req.user.userId;
+  // console.log(userId);
+  // console.log(req.user);
+
+  // Example using Mongoose (assuming you are using MongoDB)
+  // Replace this with the appropriate query based on your database
+  User.findById(userId, (err, user) => {
+    if (err) {
+      return res.status(500).json({ message: 'Database error' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Send the user's details in the response
+    res.json({ user });
+  });
 });
 
 
