@@ -70,4 +70,19 @@ router.post('/', authenticateUser, (req, res) => {
     }
   });
 
+  router.delete('/', authenticateUser, async (req, res) => {
+    const userEmail = req.user.email; // Get the user ID from the authenticated user
+  
+    try {
+      // Delete all responses that belong to the authenticated user
+      await Response.deleteMany({ userEmail });
+  
+      res.status(200).json({ message: 'All responses deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting responses:', error);
+      res.status(500).json({ message: 'Error deleting responses' });
+    }
+  });
+  
+
   module.exports = router;
